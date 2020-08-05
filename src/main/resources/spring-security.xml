@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:security="http://www.springframework.org/schema/security"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd
+        http://www.springframework.org/schema/security
+        http://www.springframework.org/schema/security/spring-security.xsd">
+
+    <!-- 释放静态资源(不受后续过滤器链作用) -->
+    <security:http pattern="/css/**" security="none"/>
+    <security:http pattern="/img/**" security="none"/>
+    <security:http pattern="/plugins/**" security="none"/>
+    <security:http pattern="/failer.jsp" security="none"/>
+
+    <!-- 配置SpringSecurity -->
+    <!-- auto-config="true" 表示自动加载SpringSecurity的配置文件 -->
+    <!-- use-expressions="true" 表示使用Spring的EL表达式来配置SpringSecurity -->
+    <security:http auto-config="true" use-expressions="true">
+        <!-- 让认证页面可以匿名访问(但仍受后续过滤器链作用) -->
+        <security:intercept-url pattern="/login.jsp" access="permitAll()"/>
+        <!-- 拦截资源 -->
+        <!-- pattern="/**" 表示拦截所有资源 第一个*表示路径 第二个*表示子目录以及后面所带参数-->
+        <!-- access="hasAnyRole('ROLE_USER')" 表示只有ROLE_USER才能访问资源,这里的ROLE_USER是和数据库角色表对应的 -->
+        <security:intercept-url pattern="/**" access="hasAnyRole('ROLE_USER','ROLE_PRODUCTER','ROLE_ORDER')"></security:intercept-url>
+        <!-- 配置认证信息 -->
+        <!-- login-page 指定自定义登录的界面-->
+        <!-- login-processing-url 指定认证的处理器地址(使用SpringSecurity提供的) -->
+        <!-- default-target-url 登录成功后的目标地址 -->
+        <!-- authentication-failure-url 登录失败后的目标地址 -->
+        <!-- username-parameter 登录名称参数(根据前端传参而定)-->
+        <!-- password-parameter 登录密码参数(根据前端传参而定)-->
+        <security:form-login login-page="/login.jsp"
+                             login-processing-url="/login"
+                             default-target-url="/index.jsp"
+                             authentication-failure-url="/failer.jsp"
+                             username-parameter="uname"
+                             password-parameter="pwd"/>
+        <!-- 配置登出信息 -->
+        <security:logout logout-url="/logout"
+                         logout-success-url="/login.jsp"/>
+        <!-- 关闭csrf过滤器 -->
+        <security:csrf disabled="true"/>
+
+        <!-- 开启RememberMe过滤器 -->
+        <!-- data-source-ref="dataSource" 指定数据库连接池(这里引用applicationContext中的配置内容)  -->
+        <!-- token-validity-seconds="60" 设置token存储时间为60秒 可省略  -->
+        <!-- remember-me-parameter="remember-me" 指定记住的参数名 可省略 -->
+        <security:remember-me data-source-ref="dataSource" token-validity-seconds="3600" remember-me-parameter="remember-me"/>
+        <!--403异常处理-->
+        <!-- <security:access-denied-handler error-page="/403.jsp"/>-->
+</security:http>
+
+<!-- 把加密对象放入到IOC容器中 -->
+    <bean id="passwordEncoder" class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder"></bean>
+
+    <!-- 这里先不采用连接数据库获取用户来源的方式(较复杂),采用下面方式模拟两个用户信息,存在于内存中的 -->
+    <security:authentication-manager>
+        <security:authentication-provider user-service-ref="userServiceImpl">
+<!--            <security:user-service>-->
+                <!-- {noop} SpringSecurity默认是必须要加密的,加上{noop}表示不加密认证 -->
+<!--                <security:user name="user" password="{noop}user" authorities="ROLE_USER" />-->
+<!--                <security:user name="admin" password="{noop}admin" authorities="ROLE_ADMIN" />-->
+<!--            </security:user-service>-->
+            <security:password-encoder ref="passwordEncoder"/>
+        </security:authentication-provider>
+    </security:authentication-manager>
+</beans>
